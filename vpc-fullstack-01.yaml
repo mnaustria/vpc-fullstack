@@ -40,15 +40,16 @@ Parameters:
     Description: The name of environment for the current stack (e.g. dev, test, staging, beta, production).
     Type: String
   NetworkDesignPatterns:
-    Description: The design pattern fot the current vpc network architecture
+    Description: The design pattern of the current vpc network architecture based from industry standards and cost tradeoffs
     Type: String
     AllowedValues:
-      - "1 tier | single subnet | public"
-      - "2 tier | two subnets | public, private | 1 nat"
-      - "2 tier | two subnets | public, private | 2 nat"
-      - "3 tier | three subnets | public, private, database | 1 nat"
-      - "3 tier | three subnets | public, private, database | 2 nat"
-    Default: "1 tier | single subnet | public"
+      - "1 tier | 1 subnet | public"
+      - "1 tier | 2 subnet | public"
+      - "2 tier | 2 subnets public | 2 subnets private | 1 nat"
+      - "2 tier | 2 subnets public | 2 subnets private | 2 nat"
+      - "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 1 nat"
+      - "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 2 nat"
+    Default: "1 tier | 1 subnet | public"
   VpcCidr:
     AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
@@ -56,38 +57,40 @@ Parameters:
     Description: CIDR block for the VPC
     Type: String
   SubnetsCidrBlock:
-    Description: Comma-delimited list of CIDR blocks for subnets located in AZ's within the current AWS Regions (e.g. 10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24). Note:The logical order is preserved.
+    Description: |
+      Comma-delimited list of CIDR blocks for subnets located in AZ's within the current AWS Regions (e.g. 10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24).
+      Note: The logical order is preserved and must be greater than the number of subnet selected
     Type: CommaDelimitedList
     Default: "10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24"
 
 Conditions:
   # parameter conditionals
-  1TierSingleSubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | single subnet | public"]
-  2TierTwoSubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 1 nat"]
-  2TierTwoSubPublicPrivate2Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 2 nat"]
-  3TierThreeSubPublicPrivateDatabase1Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 1 nat"]
-  3TierThreeSubPublicPrivateDatabase2Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 2 nat"]
+  1Tier1SubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | 1 subnet | public"]
+  1Tier2SubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | 2 subnet | public"]
+  2Tier2SubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 2 subnets public | 2 subnets private | 1 nat"]
+  2Tier2SubPublicPrivate2Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 2 subnets public | 2 subnets private | 2 nat"]
+  3Tier2SubPublicPrivateDatabase1Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 1 nat"]
+  3Tier2SubPublicPrivateDatabase2Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 2 nat"]
   # template conditionals
   1Subnet: !Or
-    - !Condition 1TierSingleSubPublic
-    - !Condition 2TierTwoSubPublicPrivate1Nat
-    - !Condition 2TierTwoSubPublicPrivate2Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 1Tier1SubPublic
+    - !Condition 1Tier2SubPublic
+    - !Condition 2Tier2SubPublicPrivate1Nat
+    - !Condition 2Tier2SubPublicPrivate2Nat
+    - !Condition 3Tier2SubPublicPrivateDatabase1Nat
+    - !Condition 3Tier2SubPublicPrivateDatabase2Nat
   2Subnet: !Or
-    - !Condition 2TierTwoSubPublicPrivate1Nat
-    - !Condition 2TierTwoSubPublicPrivate2Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
-  3Subnet: !Or
-    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 1Tier2SubPublic
+    - !Condition 2Tier2SubPublicPrivate1Nat
+    - !Condition 2Tier2SubPublicPrivate2Nat
+    - !Condition 3Tier2SubPublicPrivateDatabase1Nat
+    - !Condition 3Tier2SubPublicPrivateDatabase2Nat
   1Nat: !Or
-    - !Condition 2TierTwoSubPublicPrivate1Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition 2Tier2SubPublicPrivate1Nat
+    - !Condition 3Tier2SubPublicPrivateDatabase1Nat
   2Nat: !Or
-    - !Condition 2TierTwoSubPublicPrivate2Nat
-    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 2Tier2SubPublicPrivate2Nat
+    - !Condition 3Tier2SubPublicPrivateDatabase2Nat
 
 Resources:
   Vpc:
@@ -159,21 +162,6 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Type
           Value: "Managed by AWS Cloudformation"
-  PublicAZCSubnet:
-    Condition: 3Subnet
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [2, Fn::GetAZs: !Ref "AWS::Region"]
-      CidrBlock: !Select [2, !Ref SubnetsCidrBlock]
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub "${EnvironmentName}-public-sub3-${AWS::StackName}"
-        - Key: Environment
-          Value: !Ref EnvironmentName
-        - Key: Type
-          Value: "Managed by AWS Cloudformation"
   
   # ROUTE TABLE
   PublicRouteTable:
@@ -201,12 +189,6 @@ Resources:
     Properties:
       SubnetId: !Ref PublicAZBSubnet
       RouteTableId: !Ref PublicRouteTable
-  PublicRouteTableAssociation3:
-    Condition: 3Subnet
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicAZCSubnet
-      RouteTableId: !Ref PublicRouteTable
 
 Outputs:
   Vpc:
@@ -214,25 +196,13 @@ Outputs:
   VpcCidr:
     Value: !Ref VpcCidr
   SubnetsCidrBlock:
-    Value: !Join [",", !Ref SubnetsCidrBlock]
+    Value: !Join
+      - ","
+      - !Ref SubnetsCidrBlock
   PublicAZASubnet:
     Condition: 1Subnet
     Value: !Ref PublicAZASubnet
   PublicAZBSubnet:
     Condition: 2Subnet
     Value: !Ref PublicAZBSubnet
-  PublicAZCSubnet:
-    Condition: 3Subnet
-    Value: !Ref PublicAZCSubnet
-  PublicSubnets:
-    Value:
-      !If [
-        1Subnet,
-        !Ref PublicAZASubnet,
-        !If [
-          2Subnet,
-          !Sub "${PublicAZASubnet}, ${PublicAZBSubnet}",
-          !Sub "${PublicAZASubnet}, ${PublicAZBSubnet}, ${PublicAZCSubnet}",
-        ],
-      ]
   
