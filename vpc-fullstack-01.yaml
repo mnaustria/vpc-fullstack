@@ -63,39 +63,31 @@ Parameters:
 Conditions:
   # parameter conditionals
   1TierSingleSubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | single subnet | public"]
-  2TierTwoSubPublicPrivate1Nat: !Equals: [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 1 nat"]
-  2TierTwoSubPublicPrivate2Nat: !Equals: [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 2 nat"]
-  3TierThreeSubPublicPrivateDatabase1Nat: !Equals: [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 1 nat"]
-  3TierThreeSubPublicPrivateDatabase2Nat: !Equals: [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 2 nat"]
+  2TierTwoSubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 1 nat"]
+  2TierTwoSubPublicPrivate2Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 2 nat"]
+  3TierThreeSubPublicPrivateDatabase1Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 1 nat"]
+  3TierThreeSubPublicPrivateDatabase2Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 2 nat"]
   # template conditionals
   1Subnet: !Or
-    - !Condition: 1TierSingleSubPublic
-    - !Condition: 2TierTwoSubPublicPrivate1Nat
-    - !Condition: 2TierTwoSubPublicPrivate2Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 1TierSingleSubPublic
+    - !Condition 2TierTwoSubPublicPrivate1Nat
+    - !Condition 2TierTwoSubPublicPrivate2Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
   2Subnet: !Or
-    - !Condition: 2TierTwoSubPublicPrivate1Nat
-    - !Condition: 2TierTwoSubPublicPrivate2Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 2TierTwoSubPublicPrivate1Nat
+    - !Condition 2TierTwoSubPublicPrivate2Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
   3Subnet: !Or
-    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
   1Nat: !Or
-    - !Condition: 2TierTwoSubPublicPrivate1Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition 2TierTwoSubPublicPrivate1Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase1Nat
   2Nat: !Or
-    - !Condition: 2TierTwoSubPublicPrivate2Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
-  1tier: !Or
-    - !Condition: 1TierSingleSubPublic
-  2tier: !Or
-    - !Condition: 2TierTwoSubPublicPrivate1Nat
-    - !Condition: 2TierTwoSubPublicPrivate2Nat
-  3tier: !Or
-    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
-    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+    - !Condition 2TierTwoSubPublicPrivate2Nat
+    - !Condition 3TierThreeSubPublicPrivateDatabase2Nat
 
 Resources:
   Vpc:
@@ -142,7 +134,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Vpc
-      AvailabilityZone: !Select [0, !GetAZs: Ref: "AWS::Region"]
+      AvailabilityZone: !Select [0, Fn::GetAZs: !Ref "AWS::Region"]
       CidrBlock: !Select [0, !Ref SubnetsCidrBlock]
       MapPublicIpOnLaunch: true
       Tags:
@@ -157,7 +149,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Vpc
-      AvailabilityZone: !Select [1, !GetAZs: Ref: "AWS::Region"]
+      AvailabilityZone: !Select [1, Fn::GetAZs: !Ref "AWS::Region"]
       CidrBlock: !Select [1, !Ref SubnetsCidrBlock]
       MapPublicIpOnLaunch: true
       Tags:
@@ -172,7 +164,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Vpc
-      AvailabilityZone: !Select [2, !GetAZs: Ref: "AWS::Region"]
+      AvailabilityZone: !Select [2, Fn::GetAZs: !Ref "AWS::Region"]
       CidrBlock: !Select [2, !Ref SubnetsCidrBlock]
       MapPublicIpOnLaunch: true
       Tags:
@@ -222,7 +214,7 @@ Outputs:
   VpcCidr:
     Value: !Ref VpcCidr
   SubnetsCidrBlock:
-    Value: !Ref SubnetsCidrBlock
+    Value: !Join [",", !Ref SubnetsCidrBlock]
   PublicAZASubnet:
     Condition: 1Subnet
     Value: !Ref PublicAZASubnet
