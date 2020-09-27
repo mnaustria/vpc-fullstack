@@ -25,6 +25,7 @@ Metadata:
           - EnvironmentName
           - NetworkDesignPatterns
           - VpcCidr
+          - SubnetsCidrBlock
     ParameterLabels:
       EnvironmentName:
         default: Environment Name
@@ -32,6 +33,8 @@ Metadata:
         default: Network Design Patterns
       VpcCidr:
         default: VPC CIDR Block
+      SubnetsCidrBlock:
+        default: Subnets CIDR Blocks
 Parameters:
   EnvironmentName:
     Description: The name of environment for the current stack (e.g. dev, test, staging, beta, production).
@@ -41,7 +44,6 @@ Parameters:
     Type: String
     AllowedValues:
       - "1 tier | single subnet | public"
-      - "1 tier | single subnet | private | 1 nat"
       - "2 tier | two subnets | public, private | 1 nat"
       - "2 tier | two subnets | public, private | 2 nat"
       - "3 tier | three subnets | public, private, database | 1 nat"
@@ -53,6 +55,47 @@ Parameters:
     Default: 10.0.0.0/16
     Description: CIDR block for the VPC
     Type: String
+  SubnetsCidrBlock:
+    Description: Comma-delimited list of CIDR blocks for subnets located in AZ's within the current AWS Regions (e.g. 10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24). Note:The logical order is preserved.
+    Type: CommaDelimitedList
+    Default: "10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24"
+
+Conditions:
+  # parameter conditionals
+  1TierSingleSubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | single subnet | public"]
+  2TierTwoSubPublicPrivate1Nat: !Equals: [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 1 nat"]
+  2TierTwoSubPublicPrivate2Nat: !Equals: [!Ref NetworkDesignPatterns, "2 tier | two subnets | public, private | 2 nat"]
+  3TierThreeSubPublicPrivateDatabase1Nat: !Equals: [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 1 nat"]
+  3TierThreeSubPublicPrivateDatabase2Nat: !Equals: [!Ref NetworkDesignPatterns, "3 tier | three subnets | public, private, database | 2 nat"]
+  # template conditionals
+  1Subnet: !Or
+    - !Condition: 1TierSingleSubPublic
+    - !Condition: 2TierTwoSubPublicPrivate1Nat
+    - !Condition: 2TierTwoSubPublicPrivate2Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+  2Subnet: !Or
+    - !Condition: 2TierTwoSubPublicPrivate1Nat
+    - !Condition: 2TierTwoSubPublicPrivate2Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+  3Subnet: !Or
+    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+  1Nat: !Or
+    - !Condition: 2TierTwoSubPublicPrivate1Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
+  2Nat: !Or
+    - !Condition: 2TierTwoSubPublicPrivate2Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
+  1tier: !Or
+    - !Condition: 1TierSingleSubPublic
+  2tier: !Or
+    - !Condition: 2TierTwoSubPublicPrivate1Nat
+    - !Condition: 2TierTwoSubPublicPrivate2Nat
+  3tier: !Or
+    - !Condition: 3TierThreeSubPublicPrivateDatabase1Nat
+    - !Condition: 3TierThreeSubPublicPrivateDatabase2Nat
 
 Resources:
   Vpc:
@@ -63,8 +106,141 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: !Sub "${EnvironmentName}-vpc-main"
+          Value: !Sub "${EnvironmentName}-vpc-${AWS::StackName}"
         - Key: Environment
           Value: !Ref EnvironmentName
         - Key: Type
           Value: "Managed by AWS Cloudformation"
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-igw-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+  
+  # VPC ROUTES
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  
+  # SUBNETS
+  PublicAZASubnet:
+    Condition: 1Subnet
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs: Ref: "AWS::Region"]
+      CidrBlock: !Select [0, !Ref SubnetsCidrBlock]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-sub1-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  PublicAZBSubnet:
+    Condition: 2Subnet
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs: Ref: "AWS::Region"]
+      CidrBlock: !Select [1, !Ref SubnetsCidrBlock]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-sub2-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  PublicAZCSubnet:
+    Condition: 3Subnet
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [2, !GetAZs: Ref: "AWS::Region"]
+      CidrBlock: !Select [2, !Ref SubnetsCidrBlock]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-sub3-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  
+  # ROUTE TABLE
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-rt-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+        
+  # ROUTE ASSOC
+  PublicRouteTableAssociation1:
+    Condition: 1Subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicAZASubnet
+      RouteTableId: !Ref PublicRouteTable
+  PublicRouteTableAssociation2:
+    Condition: 2Subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicAZBSubnet
+      RouteTableId: !Ref PublicRouteTable
+  PublicRouteTableAssociation3:
+    Condition: 3Subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicAZCSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+Outputs:
+  Vpc:
+    Value: !Ref Vpc
+  VpcCidr:
+    Value: !Ref VpcCidr
+  SubnetsCidrBlock:
+    Value: !Ref SubnetsCidrBlock
+  PublicAZASubnet:
+    Condition: 1Subnet
+    Value: !Ref PublicAZASubnet
+  PublicAZBSubnet:
+    Condition: 2Subnet
+    Value: !Ref PublicAZBSubnet
+  PublicAZCSubnet:
+    Condition: 3Subnet
+    Value: !Ref PublicAZCSubnet
+  PublicSubnets:
+    Value:
+      !If [
+        1Subnet,
+        !Ref PublicAZASubnet,
+        !If [
+          2Subnet,
+          !Sub "${PublicAZASubnet}, ${PublicAZBSubnet}",
+          !Sub "${PublicAZASubnet}, ${PublicAZBSubnet}, ${PublicAZCSubnet}",
+        ],
+      ]
+  
