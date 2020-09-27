@@ -25,3 +25,46 @@ Metadata:
           - EnvironmentName
           - NetworkDesignPatterns
           - VpcCidr
+    ParameterLabels:
+      EnvironmentName:
+        default: Environment Name
+      NetworkDesignPatterns:
+        default: Network Design Patterns
+      VpcCidr:
+        default: VPC CIDR Block
+Parameters:
+  EnvironmentName:
+    Description: The name of environment for the current stack (e.g. dev, test, staging, beta, production).
+    Type: String
+  NetworkDesignPatterns:
+    Description: The design pattern fot the current vpc network architecture
+    Type: String
+    AllowedValues:
+      - "1 tier | single subnet | public"
+      - "1 tier | single subnet | private | 1 nat"
+      - "2 tier | two subnets | public, private | 1 nat"
+      - "2 tier | two subnets | public, private | 2 nat"
+      - "3 tier | three subnets | public, private, database | 1 nat"
+      - "3 tier | three subnets | public, private, database | 2 nat"
+    Default: "1 tier | single subnet | public"
+  VpcCidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+    Type: String
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-vpc-main"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
