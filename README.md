@@ -24,7 +24,7 @@ directory, which contains the code for the Amazon VPC template(s).
 #### 2. Create the VPC cloudFormation stack
 
 Deploy | Region Name | Region
-:---: | ------------ | ------------- | -------------
+:---: | ------------ | -------------
 [🚀][us-east-1] | US East (N. Virginia) | us-east-1
 [🚀][us-east-2] | US East (Ohio) | us-east-2
 [🚀][us-west-1] | US West (N. California) | us-west-1
@@ -41,7 +41,7 @@ Deploy | Region Name | Region
 #### 3. Optionally, you can create security groups  cloudformation stack.
 
 Deploy | Region Name | Region
-:---: | ------------ | ------------- | -------------
+:---: | ------------ | -------------
 [🚀][sg-us-east-1] | US East (N. Virginia) | us-east-1
 [🚀][sg-us-east-2] | US East (Ohio) | us-east-2
 [🚀][sg-us-west-1] | US West (N. California) | us-west-1
