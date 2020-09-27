@@ -1,0 +1,27 @@
+# Network Design Patterns
+# 1 tier, single subnet, public
+# 1 tier, single subnet, private, 1 nat
+# 2 tier, two subnets, public + private, 1 nat
+# 2 tier, two subnets, public + private, 2 nat
+# 3 tier, three subnets, public + private + database, 1 nat
+# 3 tier, three subnets, public + private + database, 2 nat
+
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Creates VPC, Subnets, Internet Gateway, Nat Gateways, RouteTables, Security Groups and more.
+
+Metadata:
+  Authors:
+    Description: Paul Bartocillo (pebartocillo@apper.ph) - Apper Digital Inc.
+  License:
+    Description:
+      "Copyright 2020 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+      SPDX-License-Identifier: MIT-0"
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Amazon VPC Parameters
+        Parameters:
+          - EnvironmentName
+          - NetworkDesignPatterns
+          - VpcCidr

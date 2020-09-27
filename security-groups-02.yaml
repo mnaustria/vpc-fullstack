@@ -1,0 +1,25 @@
+# Security Grouping Patterns
+# bastion, public
+# bastion, private
+# bastion, public, private, database,
+# bastion, public, private, database, cache
+
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Creates Security Groups in the selected AWS VPC.
+
+Metadata:
+  Authors:
+    Description: Paul Bartocillo (pebartocillo@apper.ph) - Apper Digital Inc.
+  License:
+    Description:
+      "Copyright 2020 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+      SPDX-License-Identifier: MIT-0"
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Amazon VPC - Security Groups Parameters
+        Parameters:
+          - EnvironmentName
+          - SecurityGroupingPatterns
+          - SshAccessCidr
