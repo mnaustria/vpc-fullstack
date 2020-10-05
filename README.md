@@ -8,7 +8,7 @@ to orchestrate your network architecture design automatically.
 #### 1. Fork the GitHub repository
 
 [Fork](https://help.github.com/articles/fork-a-repo/) the [Amazon VPC sample
-template](https://github.com/w3dotmakinadotnull/vpc-fullstack) GitHub repository into
+template](https://github.com/w3kp/vpc-fullstack) GitHub repository into
 your GitHub account.
 
 From your terminal application, execute the following command (make sure to
