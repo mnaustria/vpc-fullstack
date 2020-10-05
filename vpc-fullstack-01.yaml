@@ -44,7 +44,7 @@ Parameters:
     Type: String
     AllowedValues:
       - "1 tier | 1 subnet | public"
-      - "1 tier | 2 subnet | public"
+      - "1 tier | 2 subnets | public"
       - "2 tier | 2 subnets public | 2 subnets private | 1 nat"
       - "2 tier | 2 subnets public | 2 subnets private | 2 nat"
       - "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 1 nat"
@@ -59,14 +59,14 @@ Parameters:
   SubnetsCidrBlock:
     Description: |
       Comma-delimited list of CIDR blocks for subnets located in AZ's within the current AWS Regions (e.g. 10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24).
-      Note: The logical order is preserved and must be greater than the number of subnet selected
+      Note: The logical order is preserved and must be greater than or equal to the number of subnet selected in the network design pattern field.
     Type: CommaDelimitedList
     Default: "10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24"
 
 Conditions:
   # parameter conditionals
   1Tier1SubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | 1 subnet | public"]
-  1Tier2SubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | 2 subnet | public"]
+  1Tier2SubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | 2 subnets | public"]
   2Tier2SubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 2 subnets public | 2 subnets private | 1 nat"]
   2Tier2SubPublicPrivate2Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 2 subnets public | 2 subnets private | 2 nat"]
   3Tier2SubPublicPrivateDatabase1Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 1 nat"]
