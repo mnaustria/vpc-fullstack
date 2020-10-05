@@ -1,4 +1,5 @@
-# Security Grouping Patterns
+# Security Groups Patterns
+# blank state
 # bastion, public
 # bastion, private
 # bastion, public, private, database,
@@ -21,5 +22,50 @@ Metadata:
           default: Amazon VPC - Security Groups Parameters
         Parameters:
           - EnvironmentName
-          - SecurityGroupingPatterns
+          - Vpc
+          - SecurityGroupsPatterns
           - SshAccessCidr
+    ParameterLabels:
+      EnvironmentName:
+        default: Environment Name
+      Vpc:
+        default: AWS Vpc
+      SecurityGroupsPatterns:
+        default: Security Groups Design Patterns
+      SshAccessCidr:
+        default: SSH Access CIDR Blocks
+Parameters:
+  EnvironmentName:
+    Description: The name of environment for the current stack (e.g. dev, test, staging, beta, production).
+    Type: String
+  Vpc:
+    Description: Select available AWS VPC network.
+    Type: AWS::EC2::VPC::Id
+  SecurityGroupsPatterns:
+    Description: The design pattern of the current security group architecture. You can select "empty rules" if you want to input inbound rules manually.
+    Type: String
+    AllowedValues:
+      - "empty rules"
+      - "bastion | public"
+      - "bastion | private"
+      - "bastion | public | private | database"
+      - "bastion | public | private | database | cache"
+    Default: "empty rules"
+  SshAccessCidr:
+    Description: (Optional) The CIDR IP range that is permitted to SSH to bastion instance. Note - a value of 0.0.0.0/0 will allow access from ANY IP address.
+    Type: String
+
+Resources:
+  EmptySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Empty security group for manual rules
+      VpcId: !Ref Vpc
+      GroupName: !Sub "${EnvironmentName}-default-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-default-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
