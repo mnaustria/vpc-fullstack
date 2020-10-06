@@ -1,6 +1,5 @@
 # Security Groups Patterns
 # blank state
-# bastion, public
 # bastion, private
 # bastion, public, private, database,
 # bastion, public, private, database, cache
@@ -55,8 +54,23 @@ Parameters:
     Description: (Optional) The CIDR IP range that is permitted to SSH to bastion instance. Note - a value of 0.0.0.0/0 will allow access from ANY IP address.
     Type: String
 
+Conditions:
+  # parameter conditionals
+  EmptySG: !Equals [!Ref SecurityGroupsPatterns, "empty rules"]
+  BastionPublicSG: !Equals [!Ref SecurityGroupsPatterns, "bastion | public"]
+  BastionPublicPrivateSG: !Equals [!Ref SecurityGroupsPatterns, "bastion | public | private"]
+  BastionPublicPrivateDatabaseSG: !Equals [!Ref SecurityGroupsPatterns, "bastion | public | private | database"]
+  BastionPublicPrivateDatabaseCacheSG: !Equals [!Ref SecurityGroupsPatterns, "bastion | public | private | database | cache"]
+  # template conditionals
+  BastionPublicSG: !Or
+    - !Condition BastionPublicSG
+    - !Condition BastionPublicPrivateSG
+    - !Condition BastionPublicPrivateDatabaseSG
+    - !Condition BastionPublicPrivateDatabaseCacheSG
+
 Resources:
   EmptySecurityGroup:
+    Condition: EmptySG
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Empty security group for manual rules
