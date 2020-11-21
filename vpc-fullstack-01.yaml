@@ -112,6 +112,12 @@ Conditions:
   2Tier2Sub: !And
     - !Condition 2Subnet
     - !Condition 2Tier
+  3Tier1Sub: !And
+    - !Condition 1Subnet
+    - !Condition 3Tier
+  3Tier2Sub: !And
+    - !Condition 2Subnet
+    - !Condition 3Tier
   1TierRt: !Or
     - !Condition 1Tier
     - !Condition 2Tier
@@ -223,7 +229,35 @@ Resources:
           Value: "Managed by AWS Cloudformation"
 
   # DATABASE SUBNETS
-  
+  DatabaseAZASubnet:
+    Condition: 3Tier1Sub
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, Fn::GetAZs: !Ref "AWS::Region"]
+      CidrBlock: !Select [4, !Ref SubnetsCidrBlock]
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-database-sub1-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  DatabaseAZBSubnet:
+    Condition: 3Tier2Sub
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, Fn::GetAZs: !Ref "AWS::Region"]
+      CidrBlock: !Select [5, !Ref SubnetsCidrBlock]
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-database-sub2-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+
   # ROUTE TABLE
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -246,6 +280,18 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${EnvironmentName}-private-rt-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  DatabaseRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: 3Tier
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-database-rt-${AWS::StackName}"
         - Key: Environment
           Value: !Ref EnvironmentName
         - Key: Type
@@ -280,6 +326,20 @@ Resources:
       SubnetId: !Ref PrivateAZBSubnet
       RouteTableId: !Ref PrivateRouteTable
 
+  DatabaseRouteTableAssociation1:
+    Condition: 3Tier1Sub
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DatabaseAZASubnet
+      RouteTableId: !Ref DatabaseRouteTable
+
+  DatabaseRouteTableAssociation2:
+    Condition: 3Tier2Sub
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DatabaseAZBSubnet
+      RouteTableId: !Ref DatabaseRouteTable
+
   # NAT GATEWAYS
   NatEIP1:
     Condition: 1Nat
@@ -307,6 +367,14 @@ Resources:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  NatRoute2:
+    Condition: 1Nat
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref DatabaseRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway1
 
