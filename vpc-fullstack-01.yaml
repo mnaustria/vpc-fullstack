@@ -1,8 +1,11 @@
 # Network Design Patterns
-# 1 tier, single subnet, public
-# 2 tier, 1 subnet public, 1 subnet private, 1 nat
-# 2 tier, two subnets, public + private, 1 nat
-# 2 tier, two subnets, public + private, 2 nat
+# "1 tier | 1 subnet | public"
+# "1 tier | 2 subnet | public"
+# "2 tier | 1 subnet public | 1 subnet private | 1 nat"
+# "2 tier | 2 subnets public | 2 subnets private | 1 nat"
+# "2 tier | 2 subnets public | 2 subnets private | 2 nat"
+# "3 tier | 1 subnet public | 1 subnet private | 1 subnet database | 1 nat"
+# "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 2 nat"
 
 AWSTemplateFormatVersion: 2010-09-09
 
@@ -106,6 +109,7 @@ Conditions:
   3Tier: !Or 
     - !Condition 3Tier1SubPublicPrivate1Nat
     - !Condition 3Tier2SubPublicPrivate2Nat
+  # Very complicated logic but it works!
   1Tier1Sub: !Or
     - !Condition 1Subnet
     - !Condition 2Subnet
@@ -118,6 +122,13 @@ Conditions:
   2Tier2Sub: !And
     - !Condition 2Subnet
     - !Condition 2Tier
+  1TierRt: !Or
+    - !Condition 1Tier
+    - !Condition 2Tier
+    - !Condition 3Tier
+  2TierRt: !Or
+    - !Condition 2Tier
+    - !Condition 3Tier
 
 Resources:
   Vpc:
@@ -226,7 +237,7 @@ Resources:
   # ROUTE TABLE
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
-    Condition: 1Tier
+    Condition: 1TierRt
     Properties:
       VpcId: !Ref Vpc
       Tags:
@@ -239,7 +250,7 @@ Resources:
     
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
-    Condition: 2Tier
+    Condition: 2TierRt
     Properties:
       VpcId: !Ref Vpc
       Tags:
