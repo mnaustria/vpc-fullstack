@@ -3,9 +3,7 @@
 # "1 tier | 2 subnet | public"
 # "2 tier | 1 subnet public | 1 subnet private | 1 nat"
 # "2 tier | 2 subnets public | 2 subnets private | 1 nat"
-# "2 tier | 2 subnets public | 2 subnets private | 2 nat"
 # "3 tier | 1 subnet public | 1 subnet private | 1 subnet database | 1 nat"
-# "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 2 nat"
 
 AWSTemplateFormatVersion: 2010-09-09
 
@@ -48,9 +46,7 @@ Parameters:
       - "1 tier | 2 subnet | public"
       - "2 tier | 1 subnet public | 1 subnet private | 1 nat"
       - "2 tier | 2 subnets public | 2 subnets private | 1 nat"
-      - "2 tier | 2 subnets public | 2 subnets private | 2 nat"
       - "3 tier | 1 subnet public | 1 subnet private | 1 subnet database | 1 nat"
-      - "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 2 nat"
     Default: "1 tier | 2 subnet | public"
   VpcCidr:
     AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
@@ -71,44 +67,30 @@ Conditions:
   1Tier2SubPublic: !Equals [!Ref NetworkDesignPatterns, "1 tier | 2 subnet | public"]
   2Tier1SubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 1 subnet public | 1 subnet private | 1 nat"]
   2Tier2SubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 2 subnets public | 2 subnets private | 1 nat"]
-  2Tier2SubPublicPrivate2Nat: !Equals [!Ref NetworkDesignPatterns, "2 tier | 2 subnets public | 2 subnets private | 2 nat"]
   3Tier1SubPublicPrivate1Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | 1 subnet public | 1 subnet private | 1 subnet database | 1 nat"]
-  3Tier2SubPublicPrivate2Nat: !Equals [!Ref NetworkDesignPatterns, "3 tier | 2 subnets public | 2 subnets private | 2 subnets database | 2 nat"]
   # template conditionals
   1Subnet: !Or
     - !Condition 1Tier1SubPublic
     - !Condition 1Tier2SubPublic
     - !Condition 2Tier1SubPublicPrivate1Nat
     - !Condition 2Tier2SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate2Nat
     - !Condition 3Tier1SubPublicPrivate1Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
   2Subnet: !Or
     - !Condition 1Tier2SubPublic
     - !Condition 2Tier2SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate2Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
   1Nat: !Or
     - !Condition 2Tier1SubPublicPrivate1Nat
     - !Condition 2Tier2SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate2Nat
     - !Condition 3Tier1SubPublicPrivate1Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
-  2Nat: !Or
-    - !Condition 2Tier2SubPublicPrivate2Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
   1Tier: !Or 
     - !Condition 1Tier1SubPublic
     - !Condition 1Tier2SubPublic
   2Tier: !Or 
     - !Condition 2Tier1SubPublicPrivate1Nat
     - !Condition 2Tier2SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate2Nat
     - !Condition 3Tier1SubPublicPrivate1Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
   3Tier: !Or 
     - !Condition 3Tier1SubPublicPrivate1Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
   # Very complicated logic but it works!
   1Tier1Sub: !Or
     - !Condition 1Subnet
@@ -312,27 +294,6 @@ Resources:
         - Key: Type
           Value: "Managed by AWS Cloudformation"
           
-  NatEIP2:
-    Condition: 2Nat
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  NatGateway2:
-    Condition: 2Nat
-    Type: AWS::EC2::NatGateway
-    DependsOn: AttachInternetGateway
-    Properties:
-      AllocationId: !GetAtt NatEIP2.AllocationId
-      SubnetId: !Ref PublicAZBSubnet
-      Tags:
-        - Key: Name
-          Value: !Sub "${EnvironmentName}-ngw2-${AWS::StackName}"
-        - Key: Environment
-          Value: !Ref EnvironmentName
-        - Key: Type
-          Value: "Managed by AWS Cloudformation"
-
   NatRoute1:
     Condition: 1Nat
     Type: AWS::EC2::Route
@@ -340,14 +301,6 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway1
-
-  NatRoute2:
-    Condition: 2Nat
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway2
 
 Outputs:
   Vpc:
