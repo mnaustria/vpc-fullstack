@@ -94,24 +94,30 @@ Conditions:
   2Nat: !Or
     - !Condition 2Tier2SubPublicPrivate2Nat
     - !Condition 3Tier2SubPublicPrivate2Nat
+  1Tier: !Or 
+    - !Condition 1Tier1SubPublic
+    - !Condition 1Tier2SubPublic
+  2Tier: !Or 
+    - !Condition 2Tier1SubPublicPrivate1Nat
+    - !Condition 2Tier2SubPublicPrivate1Nat
+    - !Condition 2Tier2SubPublicPrivate2Nat
+    - !Condition 3Tier1SubPublicPrivate1Nat
+    - !Condition 3Tier2SubPublicPrivate2Nat
+  3Tier: !Or 
+    - !Condition 3Tier1SubPublicPrivate1Nat
+    - !Condition 3Tier2SubPublicPrivate2Nat
   1Tier1Sub: !Or
     - !Condition 1Subnet
     - !Condition 2Subnet
   1Tier2Sub: !Or
     - !Condition 2Subnet
     - !Condition 1Tier2SubPublic
-  2Tier1Sub: !Or
+  2Tier1Sub: !And
     - !Condition 1Subnet
-    - !Condition 2Tier1SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate2Nat
-    - !Condition 3Tier1SubPublicPrivate1Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
-  2Tier2Sub: !Or
+    - !Condition 2Tier
+  2Tier2Sub: !And
     - !Condition 2Subnet
-    - !Condition 2Tier2SubPublicPrivate1Nat
-    - !Condition 2Tier2SubPublicPrivate2Nat
-    - !Condition 3Tier2SubPublicPrivate2Nat
+    - !Condition 2Tier
 
 Resources:
   Vpc:
@@ -220,6 +226,7 @@ Resources:
   # ROUTE TABLE
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
+    Condition: 1Tier
     Properties:
       VpcId: !Ref Vpc
       Tags:
@@ -232,6 +239,7 @@ Resources:
     
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
+    Condition: 2Tier
     Properties:
       VpcId: !Ref Vpc
       Tags:
