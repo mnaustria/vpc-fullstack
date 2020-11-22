@@ -1,5 +1,5 @@
 # Security Groups Patterns
-# blank state
+# empty rules
 # bastion, private
 # bastion, public, private, database,
 # bastion, public, private, database, cache
@@ -10,7 +10,7 @@ Description: Creates Security Groups in the selected AWS VPC.
 
 Metadata:
   Authors:
-    Description: Paul Bartocillo (pebartocillo@apper.ph) - Apper Digital Inc.
+    Description: Apper DevOps (developers@apper.ph) - Apper Digital Inc.
   License:
     Description:
       "Copyright 2020 Amazon.com, Inc. and its affiliates. All Rights Reserved.
@@ -24,6 +24,7 @@ Metadata:
           - Vpc
           - SecurityGroupsPatterns
           - SshAccessCidr
+          - DatabasePort
     ParameterLabels:
       EnvironmentName:
         default: Environment Name
@@ -33,6 +34,8 @@ Metadata:
         default: Security Groups Design Patterns
       SshAccessCidr:
         default: SSH Access CIDR Blocks
+      DatabasePort:
+        default: Database Port
 Parameters:
   EnvironmentName:
     Description: The name of environment for the current stack (e.g. dev, test, staging, beta, production).
@@ -46,13 +49,18 @@ Parameters:
     AllowedValues:
       - "empty rules"
       - "bastion | public"
-      - "bastion | private"
+      - "bastion | public | private"
       - "bastion | public | private | database"
       - "bastion | public | private | database | cache"
     Default: "empty rules"
   SshAccessCidr:
     Description: (Optional) The CIDR IP range that is permitted to SSH to bastion instance. Note - a value of 0.0.0.0/0 will allow access from ANY IP address.
     Type: String
+    Default: "0.0.0.0/0"
+  DatabasePort:
+    Description: Database Port (e.g. 3306, 5432, etc)
+    Type: Number
+    Default: "3306"
 
 Conditions:
   # parameter conditionals
@@ -62,15 +70,25 @@ Conditions:
   BastionPublicPrivateDatabaseSG: !Equals [!Ref SecurityGroupsPatterns, "bastion | public | private | database"]
   BastionPublicPrivateDatabaseCacheSG: !Equals [!Ref SecurityGroupsPatterns, "bastion | public | private | database | cache"]
   # template conditionals
-  BastionPublicSG: !Or
+  BastionPublicSecGroup: !Or
     - !Condition BastionPublicSG
     - !Condition BastionPublicPrivateSG
     - !Condition BastionPublicPrivateDatabaseSG
     - !Condition BastionPublicPrivateDatabaseCacheSG
+  BastionPublicPrivateSecGroup: !Or
+    - !Condition BastionPublicPrivateSG
+    - !Condition BastionPublicPrivateDatabaseSG
+    - !Condition BastionPublicPrivateDatabaseCacheSG
+  BastionPublicPrivateDatabaseSecGroup: !Or
+    - !Condition BastionPublicPrivateDatabaseSG
+    - !Condition BastionPublicPrivateDatabaseCacheSG
+  BastionPublicPrivateDatabaseCacheSecGroup: !Equals [!Ref SecurityGroupsPatterns, "bastion | public | private | database | cache"] 
+  EmpSG: !Equals [!Ref SecurityGroupsPatterns, "empty rules"]
 
 Resources:
+  # Empty/Blank State Security Group
   EmptySecurityGroup:
-    Condition: EmptySG
+    Condition: EmpSG
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Empty security group for manual rules
@@ -83,3 +101,141 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Type
           Value: "Managed by AWS Cloudformation"
+  # Bastion Security Group
+  BastionSecurityGroup:
+    Condition: BastionPublicSecGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Bastion instances
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SshAccessCidr
+      VpcId: !Ref Vpc
+      GroupName: !Sub "${EnvironmentName}-bastion-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-bastion-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  # Public Security Group
+  PublicSecurityGroup:
+    Condition: BastionPublicSecGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for WEBAPP & ALB
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref Vpc
+      GroupName: !Sub "${EnvironmentName}-public-sg-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-sg-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  # Web/Private Security Group
+  PrivateSecurityGroup:
+    Condition: BastionPublicPrivateSecGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for WEB Resources
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref PublicSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref PublicSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroup
+        # Add custom port base on the running app (e.g. 3000)
+        # - IpProtocol: tcp
+        #   FromPort: 3000
+        #   ToPort: 3000
+        #   SourceSecurityGroupId: !Ref PublicSecurityGroup
+      VpcId: !Ref Vpc
+      GroupName: !Sub "${EnvironmentName}-private-sg-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-private-sg-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+  # Database Security Group
+  DatabaseSecurityGroup:
+    Condition: BastionPublicPrivateDatabaseSecGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Amazon RDS cluster or Other DB SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref DatabasePort
+          ToPort: !Ref DatabasePort
+          SourceSecurityGroupId: !Ref PrivateSecurityGroup
+      VpcId: !Ref Vpc
+      GroupName: !Sub "${EnvironmentName}-database-sg-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-database-sg-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+
+  CacheSecurityGroup:
+    Condition: BastionPublicPrivateDatabaseCacheSecGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Amazon RDS cluster or Other DB SG
+      SecurityGroupIngress:
+        # Redis Port
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref PrivateSecurityGroup
+      VpcId: !Ref Vpc
+      GroupName: !Sub "${EnvironmentName}-cache-sg-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-cache-sg-${AWS::StackName}"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: "Managed by AWS Cloudformation"
+
+Outputs:
+  EmptySecurityGroup:
+    Condition: EmpSG 
+    Value: !Ref EmptySecurityGroup
+  BastionSecurityGroup:
+    Condition: BastionPublicSecGroup
+    Value: !Ref BastionSecurityGroup
+  PublicSecurityGroup:
+    Condition: BastionPublicSecGroup
+    Value: !Ref PublicSecurityGroup
+  PrivateSecurityGroup:
+    Condition: BastionPublicPrivateSecGroup
+    Value: !Ref PrivateSecurityGroup
+  DatabaseSecurityGroup:
+    Condition: BastionPublicPrivateDatabaseSecGroup
+    Value: !Ref DatabaseSecurityGroup
+  CacheSecurityGroup:
+    Condition: BastionPublicPrivateDatabaseCacheSecGroup
+    Value: !Ref CacheSecurityGroup
