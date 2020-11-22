@@ -371,7 +371,7 @@ Resources:
       NatGatewayId: !Ref NatGateway1
 
   NatRoute2:
-    Condition: 1Nat
+    Condition: 3Tier
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref DatabaseRouteTable
