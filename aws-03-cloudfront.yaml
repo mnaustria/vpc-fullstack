@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Template Architecture as infrastructure as code - Creates CloudFront distribution (if selected)
+
+Metadata:
+  Authors:
+    Description: Paul Bartocillo (pebartocillo@apper.ph) - Apper Digital Inc.
+  License:
+    Description:
+      "Copyright 2020 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+      SPDX-License-Identifier: MIT-0"
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: AWS Parameters
+        Parameters:
+          - EnvironmentName
+          - CloudFrontAcmCertificate
+          - DomainName
+          - PublicAlbDnsName
+          - WebACLArn
+    ParameterLabels:
+      EnvironmentName:
+        default: Environment Name
+      CloudFrontAcmCertificate:
+        default: CloudFront Certificate ARN
+      PublicAlbDnsName:
+        default: Public ALB DNS Name
+      DomainName:
+        default: Domain name of the web site
+      WebACLArn:
+        default: WAF WebACL Name
+
+Parameters:
+  EnvironmentName:
+    Description: The name of environment for the current stack (e.g. test, staging, production).
+    Type: String
+  CloudFrontAcmCertificate:
+    AllowedPattern: ^$|(arn:aws:acm:)([a-z0-9/:-])*([a-z0-9])$
+    Description: "The AWS Certification Manager certificate ARN for the CloudFront distribution certificate - this certificate should be created in the us-east-1 (N. Virginia) region and must reference the website domain name you use below."
+    Type: String
+  PublicAlbDnsName:
+    Description: The public application load balancer dns name.
+    Type: String
+  DomainName:
+    AllowedPattern: ^$|(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$
+    Description: "[ Optional ] The main domain name of the web site (e.g. example.com)."
+    Type: String
+  WebACLArn:
+    Description: "[ Optional ] The WebACL Arn that you want to associate."
+    Type: String
+
+Conditions:
+  DomainName: !Not [!Equals ["", !Ref DomainName]]
+  WebACLArn: !Not [!Equals ["", !Ref WebACLArn]]
+  NonProd: !Not [!Equals ["production", !Ref EnvironmentName]]
+
+Resources:
+  CloudFrontDistributionWithSSL:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !If [DomainName, !Ref DomainName, !Ref "AWS::NoValue"]
+          - !If [
+              NonProd,
+              !Ref "AWS::NoValue",
+              !If [DomainName, !Sub "www.${DomainName}", !Ref "AWS::NoValue"]
+            ]
+        Comment: BMNL Storefront via CDN
+        WebACLId:
+          !If [
+            WebACLArn,
+            !Ref WebACLArn,
+            !Ref "AWS::NoValue",
+          ]
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
+          ForwardedValues:
+            QueryString: true
+            Headers: ["*"]
+            Cookies:
+              Forward: all
+          TargetOriginId: !Sub ${AWS::StackName}-ALB-OriginId
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+        Enabled: true
+        Origins:
+          - DomainName: !Ref PublicAlbDnsName
+            Id: !Sub ${AWS::StackName}-ALB-OriginId
+            CustomOriginConfig:
+              OriginReadTimeout: 60
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1
+        PriceClass: PriceClass_All
+        HttpVersion: http2
+        IPV6Enabled: true
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CloudFrontAcmCertificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.1_2016
+
+Outputs:
+  DnsEndpoint:
+    Value: !GetAtt CloudFrontDistributionWithSSL.DomainName
+  DnsHostname:
+    Value:
+      !Join ["", ["https://", !GetAtt CloudFrontDistributionWithSSL.DomainName]]
